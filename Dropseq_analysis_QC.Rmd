@@ -1,0 +1,417 @@
+---
+title: "Dropseq analysis"
+date: "`r Sys.Date()`"
+output: 
+  flexdashboard::flex_dashboard
+---
+
+
+```{r, echo=FALSE, cache=FALSE}
+## Define the sample prefix used for all qc files as well as the targeted number of STAMPS
+sample_prefix <- ""
+number_of_STAMPS=2000
+```
+
+
+```{r knitr_init, echo=FALSE}
+
+## Will check for the required R packages and quietly install them if necessary
+
+library(knitr)
+library(rmdformats)
+library(ggplot2)
+library(reshape)
+library(pander)
+library(gtools)
+library(gridExtra)
+library(dplyr)
+library(ggthemes)
+library(plotly)
+
+##Plotting theme from (https://rpubs.com/Koundy/71792)
+theme_Publication <- function(base_size=14, base_family="helvetica") {
+      library(grid)
+      library(ggthemes)
+      (theme_foundation(base_size=base_size, base_family=base_family)
+       + theme(plot.title = element_text(face = "bold",
+                                         size = rel(1.2), hjust = 0.5),
+               text = element_text(),
+               panel.background = element_rect(colour = NA),
+               plot.background = element_rect(colour = NA),
+               panel.border = element_rect(colour = NA),
+               axis.title = element_text(face = "bold",size = rel(1)),
+               axis.title.y = element_text(angle=90,vjust =2),
+               axis.title.x = element_text(vjust = -0.2),
+               axis.text = element_text(), 
+               axis.line = element_line(colour="black"),
+               axis.ticks = element_line(),
+               panel.grid.major = element_line(colour="#f0f0f0"),
+               panel.grid.minor = element_blank(),
+               legend.key = element_rect(colour = NA),
+               legend.position = "bottom",
+               legend.direction = "horizontal",
+               legend.key.size= unit(0.2, "cm"),
+               legend.margin = unit(0, "cm"),
+               legend.title = element_text(face="italic"),
+               plot.margin=unit(c(10,5,5,5),"mm"),
+               strip.background=element_rect(colour="#f0f0f0",fill="#f0f0f0"),
+               strip.text = element_text(face="bold")
+          ))
+      
+}
+
+scale_fill_Publication <- function(...){
+      library(scales)
+      discrete_scale("fill","Publication",manual_pal(values = c("#386cb0","#fdb462","#7fc97f","#ef3b2c","#662506","#a6cee3","#fb9a99","#984ea3","#ffff33")), ...)
+
+}
+
+scale_colour_Publication <- function(...){
+      library(scales)
+      discrete_scale("colour","Publication",manual_pal(values = c("#386cb0","#fdb462","#7fc97f","#ef3b2c","#662506","#a6cee3","#fb9a99","#984ea3","#ffff33")), ...)
+
+}
+
+```
+
+**Barcode quality**{data-orientation=rows}
+===================================== 
+
+### **Cell barcodes**
+
+```{r,echo=FALSE}
+cell_barcode_name <- paste(sample_prefix,"unaligned_tagged_Cellular.bam_summary.txt",sep=".")
+cell_barcode <- read.table(paste("./qc_stats/",cell_barcode_name,sep=""),sep="\t",header=T)
+
+cell_barcode$num_failed_bases <- as.character(cell_barcode$num_failed_bases)
+cell_barcode$num_failed_bases <- factor(cell_barcode$num_failed_bases,levels=mixedsort(cell_barcode$num_failed_bases))
+
+number_cell_barcodes <- sum(cell_barcode$num_barcodes)
+
+plot_cell_barcode <- ggplot(cell_barcode,aes(x = num_failed_bases, y= log10(num_barcodes))) +
+  geom_bar(fill="#db4437",stat="identity") +
+  labs(x="Number of failed bases" , y="Number of log10(Barcodes)") +
+  theme_bw() +
+  theme(legend.position="none") +
+  theme_Publication()
+
+plot_cell_barcode
+```
+
+### **Molecular barcodes**
+
+```{r,echo=FALSE}
+molecular_barcode_name <- paste(sample_prefix,"unaligned_tagged_Molecular.bam_summary.txt",sep=".")
+molecular_barcode <- read.table(paste("./qc_stats/",molecular_barcode_name,sep=""),sep="\t",header=T)
+molecular_barcode$num_failed_bases <- as.character(molecular_barcode$num_failed_bases)
+plot_molecular_barcode <- ggplot(molecular_barcode,aes(x = num_failed_bases, y= log10(num_barcodes))) +
+  geom_bar(fill="#4285f4",stat="identity") +
+  labs(x="Number of failed bases" , y="Number of log10(Barcodes)") +
+  theme_bw() +
+  theme(legend.position="none") +
+  theme_Publication()
+
+plot_molecular_barcode
+```
+
+**Adapter & polyA trimming**{data-orientation=rows}
+===================================== 
+
+### **Adapter trimming distribution**
+
+```{r,echo=FALSE}
+adapter_report_name <- paste(sample_prefix,"adapter_trimming_report.txt",sep=".")
+adapter_report <- read.table(paste("./qc_stats/",adapter_report_name,sep=""),
+                             skip=4,
+                             sep="\t",
+                             header=T)
+
+all_reads_trimmed <- sum(adapter_report$VALUE)
+
+plot_adapter_report <- ggplot(adapter_report,aes(x = BIN, y= VALUE)) +
+  geom_bar(fill="#0f9d58",stat="identity") +
+  labs(x="BIN" , y="Value") +
+  theme_bw() +
+  theme(legend.position="none") +
+  theme_Publication()
+plot_adapter_report
+```
+
+
+### **PolyA trimming distribution**
+
+```{r,echo=FALSE}
+polyA_report_name <- paste(sample_prefix,"polyA_trimming_report.txt",sep=".")
+polyA_report <- read.table(paste("./qc_stats/",polyA_report_name,sep=""),
+                             skip=4,
+                             sep="\t",
+                             header=T)
+
+polyA_trimmed <- sum(polyA_report$VALUE)
+
+plot_polyA_report <- ggplot(polyA_report,aes(x = BIN, y= VALUE)) +
+  geom_bar(stat="identity") +
+  labs(x="BIN" , y="Value") +
+  theme_bw() +
+  theme(legend.position="none") +
+  theme_Publication()
+plot_polyA_report
+```
+
+**Barcode Synthesis errors** {data-orientation=rows}
+===================================== 
+
+### **Barcode Synthesis error types**
+
+```{r,echo=FALSE}
+synthesis_name <- paste(sample_prefix,"synthesis.summary.txt",sep=".")
+
+synthesis_types<- read.table(paste("./qc_stats/",synthesis_name,sep=""),
+                             skip=1,
+                             nrows=1,
+                             sep="\t",
+                             header=T)
+
+synthesis_types_long <- melt(synthesis_types)
+
+plot_synthesis_types<- ggplot(synthesis_types_long, aes(x=variable,y= value,fill=variable)) +
+  geom_bar(stat="identity") +
+  labs(x="Synthesis Error Type" , y="Number of Barcodes") +
+  theme_bw() +
+  theme(legend.position="none") +
+  coord_flip() +
+  scale_fill_brewer(palette="Set1")
+
+plot_synthesis_types
+
+```
+
+### **Synthesis error base distribution**
+
+```{r,echo=FALSE}
+synthesis_distribution <- read.table(paste("./qc_stats/",synthesis_name,sep=""),
+                             skip=4,
+                             sep="\t",
+                             header=T)
+
+synthesis_distribution$SYNTHESIS_ERROR_BASE <- as.character(synthesis_distribution$SYNTHESIS_ERROR_BASE)
+
+plot_synthesisdistribution <- ggplot(synthesis_distribution,aes(x = SYNTHESIS_ERROR_BASE, y= num.cells)) +
+  geom_bar(stat="identity") +
+  labs(x="Synthesis Error Base" , y="Number of Cells") +
+  theme_Publication()
+
+plot_synthesisdistribution
+
+```
+
+
+
+**UMI statistics**{data-orientation=rows}
+===================================== 
+
+Column {data-width=600}
+-------------------------------------
+### **Duplicated UMIs vs unique UMIs per Cell**
+
+```{r,echo=FALSE}
+library(stringr)
+## Look at the number of duplicated and unique UMIs per Cell
+
+umi_by_gene <- read.table("./qc_stats/UMI_by_gene_dist.tab",sep="\t",header=T)
+
+## Count number of duplicated UMIs per cell
+num_of_duplicated_umis_per_cell <- umi_by_gene %>%
+  group_by(Cell.Barcode) %>%
+  subset(Num_Obs > 1) %>%
+  count()
+colnames(num_of_duplicated_umis_per_cell) <- c("Cell.Barcode","Num_duplicated_UMIs")
+
+## Count number of unique UMIs per cell
+unique_umis_per_cell <- umi_by_gene %>%
+  group_by(Cell.Barcode) %>%
+  subset(Num_Obs == 1) %>%
+  count()
+colnames(unique_umis_per_cell) <- c("Cell.Barcode","Num_of_unique_UMIs")
+
+## Sum up all duplicated UMIs
+subset_duplicated_umis <- umi_by_gene %>%
+  group_by(Cell.Barcode) %>%
+  subset(Num_Obs > 1) %>%
+  summarise(Mean_of_duplications_per_UMI=mean(Num_Obs))
+  
+subset_duplicated_umis_sum <- umi_by_gene %>%
+  group_by(Cell.Barcode) %>%
+  subset(Num_Obs > 1) %>%
+  summarise(Sum_of_duplications_per_UMI=sum(Num_Obs))
+
+## Join duplicated and unique counts into one tibble
+joined_umi_counts <- full_join(num_of_duplicated_umis_per_cell,unique_umis_per_cell,by="Cell.Barcode")
+joined_umi_counts <- full_join(joined_umi_counts,subset_duplicated_umis,by="Cell.Barcode")
+joined_umi_counts <- full_join(joined_umi_counts,subset_duplicated_umis_sum,by="Cell.Barcode")
+
+## Calculate the total number of UMIs as well as the percent of duplicated UMIs
+joined_umi_counts <- joined_umi_counts %>%
+  group_by(Cell.Barcode) %>%
+  mutate(Total_number_individual_UMIs_detected = sum(Num_duplicated_UMIs,Num_of_unique_UMIs)) %>%
+  mutate(Percent_duplicate_UMIs = Num_duplicated_UMIs/Total_number_individual_UMIs_detected*100) %>%
+  mutate(Percent_unique_UMIs = Num_of_unique_UMIs/Total_number_individual_UMIs_detected*100)
+
+## Sort table based on Total number of UMIs per Cells
+joined_umi_counts <- joined_umi_counts %>%
+  arrange(desc(Percent_unique_UMIs))
+
+## Calculate GC content for Cell barcodes
+joined_umi_counts <-  joined_umi_counts %>%
+  mutate(count_G= str_count(Cell.Barcode, "G")) %>%
+  mutate(count_C= str_count(Cell.Barcode, "C")) %>%
+  mutate(freq_GC= (count_G + count_C) / 12)
+
+joined_umi_counts <- joined_umi_counts %>%
+  arrange(desc(freq_GC))
+
+## Plot correlation between duplicated and unique UMIs per cell
+mean_duplicated_UMI <- ggplot(joined_umi_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,colour=Total_number_individual_UMIs_detected)) +
+  geom_point(aes(size=Mean_of_duplications_per_UMI),fill="grey50") +
+  theme_light() +
+  labs(title="Duplicated vs unique UMIs per Cell",
+       x = "Number of duplicated UMIs",
+       y = "Number of unique UMIs",
+       subtitle = "Every point represents a Cell! Coloured by Percentage of duplicated UMIs for Cell barcode") +
+  theme(plot.title = element_text(lineheight=.8, face="bold"))
+
+ggplotly(mean_duplicated_UMI)
+
+```
+
+### **Duplicated UMIs vs unique UMIs per Gene**
+
+```{r}
+## Look at the number of duplicated and unique UMIs per Gene
+## Count number of duplicated UMIs per cell
+num_of_duplicated_umis_per_gene <- umi_by_gene %>%
+  group_by(Gene) %>%
+  subset(Num_Obs > 1) %>%
+  count()
+colnames(num_of_duplicated_umis_per_gene) <- c("Gene","Num_duplicated_UMIs")
+
+## Count number of unique UMIs per cell
+unique_umis_per_gene <- umi_by_gene %>%
+  group_by(Gene) %>%
+  subset(Num_Obs == 1) %>%
+  count()
+colnames(unique_umis_per_gene) <- c("Gene","Num_of_unique_UMIs")
+
+## Join duplicated and unique counts into one tibble
+joined_umi_gene_counts <- full_join(num_of_duplicated_umis_per_gene,unique_umis_per_gene,by="Gene")
+
+## Calculate the total number of UMIs as well as the percent of duplicated UMIs
+joined_umi_gene_counts <- joined_umi_gene_counts %>%
+  group_by(Gene) %>%
+  mutate(Total_number_individual_UMIs_detected = sum(Num_duplicated_UMIs,Num_of_unique_UMIs)) %>%
+  mutate(Percent_duplicate_UMIs = Num_duplicated_UMIs/Total_number_individual_UMIs_detected*100) %>%
+  mutate(Percent_unique_UMIs = Num_of_unique_UMIs/Total_number_individual_UMIs_detected*100)
+
+## Sort table based on Total number of UMIs per Cells
+joined_umi_gene_counts <- joined_umi_gene_counts %>%
+  arrange(desc(Num_of_unique_UMIs))
+
+umi_duplication_by_gene <- ggplot(joined_umi_gene_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,colour=Percent_duplicate_UMIs,text=Gene)) +
+  geom_point(size=2,fill="grey50") +
+  theme_light() +
+  labs(title="Duplicated vs Unique UMIs per Gene",
+       x = "Number of duplicated UMIs",
+       y = "Number of unique UMIs",
+       subtitle = "Every represents is a Gene!") +
+  theme(plot.title = element_text(lineheight=.8, face="bold"))
+
+ggplotly(umi_duplication_by_gene)
+```
+
+Column {data-width=600}
+-------------------------------------
+
+### **Distribution of duplicated UMIs per cell**
+
+```{r,echo=FALSE}
+ggplot(joined_umi_counts,aes(log10(Mean_of_duplications_per_UMI))) +
+  geom_histogram(colour="black",fill="grey50") +
+  theme_light() +
+  labs(title="Distribution of mean UMI duplication per Cell",
+       subtitle = "For all duplicated UMIs, mean of duplication events was calculated per Cell.",
+       x = "log10 of mean UMI duplications events per Cell)",
+       y = "Number of cells") +
+  theme(plot.title = element_text(lineheight=.8, face="bold"))
+```
+
+
+### **Distribution of duplicate UMIs per cell**
+
+```{r,echo=FALSE}
+ggplot(joined_umi_counts,aes(Percent_duplicate_UMIs)) +
+  geom_histogram(colour="black",fill="grey50") +
+  theme_light() +
+  labs(title="Percentage of duplicated UMIs per cell",
+       subtitle = "Distribution of percentage of duplicated UMIs",
+       x = "Duplicate UMIs (%)",
+       y = "Number of cells") +
+  theme(plot.title = element_text(lineheight=.8, face="bold"))
+```
+
+
+**Read Distributions**{data-icon="ion-connection-bars"}
+===================================== 
+
+### **Cumulative Read distribution**
+
+```{r,echo=FALSE}
+read_count_distribution_name <- paste(sample_prefix,"aligned.tagged.cleaned.bam.readcount.txt",sep=".")
+read_count_distribution <- read.table(paste("./qc_stats/",read_count_distribution_name,sep=""),
+                             sep="\t",
+                             header=F,
+                             stringsAsFactors=F)
+
+cumulative_sum =cumsum(read_count_distribution$V1)
+cumulative_sum=cumulative_sum/max(cumulative_sum)
+
+STAMPS_barcodes <- read_count_distribution[1:number_of_STAMPS,2]
+write.table(file="STAMP_barcodes.txt",
+            STAMPS_barcodes,
+            row.names=FALSE,
+            col.names=FALSE,
+            sep="\t",
+            quote=FALSE)
+
+x_cutoff=number_of_STAMPS*5
+cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
+cumulative_sum_matrix_subset <- subset(cumulative_sum_matrix,Value < x_cutoff)
+read_count_distribution$Value <- 1:nrow(read_count_distribution)
+
+plot_cumulative_sum <- ggplot(cumulative_sum_matrix_subset,aes(x=Cell_number, y=Value)) +
+  geom_line() +
+  scale_x_continuous(limits=c(0,x_cutoff)) +
+  geom_vline(colour="red",xintercept=number_of_STAMPS) +
+  labs(x="cell barcodes sorted by number of reads [descending]",
+       y="cumulative fraction of reads") +
+  theme_Publication()
+ggplotly(plot_cumulative_sum)
+```
+
+
+### **Read distribution for top barcodes**
+
+```{r,echo=FALSE}
+## Total number of reads
+all_reads <- sum(read_count_distribution$V1)
+
+## Plot the number of barcodes for the defined number of barcdoes sequenced
+read_count_distribution_subset <- read_count_distribution[1:number_of_STAMPS,]
+read_count_distribution_subset$V1 <- as.numeric(read_count_distribution_subset$V1)
+plot_read_count_distribution_subset <- ggplot(read_count_distribution_subset,aes(log10(V1))) +
+  geom_histogram() +
+  labs(x="Log10(Number of reads)",
+       y="Number of STAMPS",
+       title="Distribution of Reads for the top 2000 STAMPS") +
+  theme_Publication()
+ggplotly(plot_read_count_distribution_subset)
+```
