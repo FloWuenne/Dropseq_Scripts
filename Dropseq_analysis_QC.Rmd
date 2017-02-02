@@ -365,7 +365,7 @@ ggplot(joined_umi_counts,aes(Percent_duplicate_UMIs)) +
 ### **Cumulative Read distribution**
 
 ```{r,echo=FALSE}
-read_count_distribution_name <- paste(sample_prefix,"aligned.tagged.cleaned.bam.readcount.txt",sep=".")
+read_count_distribution_name <- paste(sample_prefix,"readcount.txt",sep=".")
 read_count_distribution <- read.table(paste("./qc_stats/",read_count_distribution_name,sep=""),
                              sep="\t",
                              header=F,
