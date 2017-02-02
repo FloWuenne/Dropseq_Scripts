@@ -1,0 +1,38 @@
+## Config file to define variables for Dropseq pipeline
+
+## Dropseq tools directory
+dropseq_tools="/gs/project/nfk-724-aa/Programs/Drop-seq_tools-1.12"
+
+## Picard directory
+picard="/gs/project/nfk-724-aa/Programs/picard-tools-1.130/picard.jar"
+
+## Define the directory where all output files will be found
+outfile_dir=""
+
+## Define the directory where al QC files will be written to
+qc_stat_dir=""
+
+## Define where the fastq files are located
+fastq_dir=""
+
+fastq1=$fastq_dir/""
+fastq2=$fastq_dir/""
+
+## Define the file prefix that should be used for all output files
+file_prefix=""
+
+## Reference files
+
+## Specify the reference directory
+reference_dir=""
+
+## Reference fasta, refflat and gtf_file
+reference_fasta=$reference_dir/""
+refflat=$reference_dir/""
+gtf_file=$reference_dir/""
+
+STAR_index=""
+
+## Number of barcodes to test for Bead Synthesis Error (Approx 2* number of STAMPS)
+NUM_of_barcodes=4000
+
