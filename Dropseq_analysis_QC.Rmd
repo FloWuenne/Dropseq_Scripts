@@ -382,7 +382,7 @@ write.table(file="STAMP_barcodes.txt",
             sep="\t",
             quote=FALSE)
 
-x_cutoff=number_of_STAMPS*5
+x_cutoff=number_of_STAMPS*50
 cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
 cumulative_sum_matrix_subset <- subset(cumulative_sum_matrix,Value < x_cutoff)
 read_count_distribution$Value <- 1:nrow(read_count_distribution)
