@@ -411,7 +411,7 @@ plot_read_count_distribution_subset <- ggplot(read_count_distribution_subset,aes
   geom_histogram() +
   labs(x="Log10(Number of reads)",
        y="Number of STAMPS",
-       title="Distribution of Reads for the top 2000 STAMPS") +
+       title="Distribution of Reads for the top selected STAMPS") +
   theme_Publication()
 ggplotly(plot_read_count_distribution_subset)
 ```
