@@ -4,7 +4,10 @@
 dropseq_tools="/gs/project/nfk-724-aa/Programs/Drop-seq_tools-1.12"
 
 ## Picard directory
-picard="/gs/project/nfk-724-aa/Programs/picard-tools-1.130/picard.jar"
+PICARD_HOME="/gs/project/nfk-724-aa/Programs/picard-tools-1.130/picard.jar"
+
+## Activate piping or not (1=piping on, 0=piping off)
+piping=1
 
 ## Define the directory where all output files will be found
 outfile_dir=""

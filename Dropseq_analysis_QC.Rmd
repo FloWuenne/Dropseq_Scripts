@@ -272,7 +272,7 @@ joined_umi_counts <- joined_umi_counts %>%
 
 ## Plot correlation between duplicated and unique UMIs per cell
 mean_duplicated_UMI <- ggplot(joined_umi_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,colour=Total_number_individual_UMIs_detected)) +
-  geom_point(aes(size=Mean_of_duplications_per_UMI),fill="grey50") +
+  geom_point() +
   theme_light() +
   labs(title="Duplicated vs unique UMIs per Cell",
        x = "Number of duplicated UMIs",
@@ -317,7 +317,7 @@ joined_umi_gene_counts <- joined_umi_gene_counts %>%
   arrange(desc(Num_of_unique_UMIs))
 
 umi_duplication_by_gene <- ggplot(joined_umi_gene_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,colour=Percent_duplicate_UMIs,text=Gene)) +
-  geom_point(size=2,fill="grey50") +
+  geom_point(size=2) +
   theme_light() +
   labs(title="Duplicated vs Unique UMIs per Gene",
        x = "Number of duplicated UMIs",
@@ -365,11 +365,16 @@ ggplot(joined_umi_counts,aes(Percent_duplicate_UMIs)) +
 ### **Cumulative Read distribution**
 
 ```{r,echo=FALSE}
-read_count_distribution_name <- paste(sample_prefix,"readcount.txt",sep=".")
+read_count_distribution_name <- paste(sample_prefix,"aligned.tagged.cleaned.bam.readcount.txt",sep=".")
 read_count_distribution <- read.table(paste("./qc_stats/",read_count_distribution_name,sep=""),
                              sep="\t",
                              header=F,
                              stringsAsFactors=F)
+
+## Filter outs STAMPS that contribute too much reads based on the overall distribution
+outliers <- subset(read_count_distribution,read_count_distribution$V1 > mean(read_count_distribution$V1) + 6*sd(read_count_distribution$V1))
+
+read_count_distribution<- subset(read_count_distribution,read_count_distribution$V1 < mean(read_count_distribution$V1) + 5*sd(read_count_distribution$V1))
 
 cumulative_sum =cumsum(read_count_distribution$V1)
 cumulative_sum=cumulative_sum/max(cumulative_sum)
@@ -382,7 +387,7 @@ write.table(file="STAMP_barcodes.txt",
             sep="\t",
             quote=FALSE)
 
-x_cutoff=number_of_STAMPS*50
+x_cutoff=number_of_STAMPS*5
 cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
 cumulative_sum_matrix_subset <- subset(cumulative_sum_matrix,Value < x_cutoff)
 read_count_distribution$Value <- 1:nrow(read_count_distribution)
@@ -411,7 +416,7 @@ plot_read_count_distribution_subset <- ggplot(read_count_distribution_subset,aes
   geom_histogram() +
   labs(x="Log10(Number of reads)",
        y="Number of STAMPS",
-       title="Distribution of Reads for the top selected STAMPS") +
+       title="Distribution of Reads for the top 2000 STAMPS") +
   theme_Publication()
 ggplotly(plot_read_count_distribution_subset)
 ```
