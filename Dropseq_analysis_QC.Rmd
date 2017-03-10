@@ -9,7 +9,7 @@ output:
 ```{r, echo=FALSE, cache=FALSE}
 ## Define the sample prefix used for all qc files as well as the targeted number of STAMPS
 sample_prefix <- ""
-number_of_STAMPS=2000
+number_of_STAMPS=
 ```
 
 
@@ -359,22 +359,74 @@ ggplot(joined_umi_counts,aes(Percent_duplicate_UMIs)) +
 ```
 
 
-**Read Distributions**{data-icon="ion-connection-bars"}
+
+**Single cell Statistics**
 ===================================== 
 
+Column {data-width=600}
+-------------------------------------
+### **Single cell Mapping Statistics**
+
+```{r,echo=FALSE}
+## Read in single cell metrics file
+single_cell_metrics <- read.table("./qc_stats/Single_Cell_Quality_metrics.tab",header=T,sep="\t")
+
+## Set rownames for heatmap plotting
+rownames(single_cell_metrics) <-single_cell_metrics$SAMPLE
+
+## Filter for only percentage columns
+single_cell_metrics_filtered <- single_cell_metrics %>%
+  select(PF_ALIGNED_BASES,PCT_CODING_BASES,PCT_UTR_BASES,PCT_INTRONIC_BASES,PCT_INTERGENIC_BASES,PCT_MRNA_BASES,PCT_USABLE_BASES)
+
+## plot distribution of aligned bases
+
+ggplot(single_cell_metrics,aes(log10(PF_ALIGNED_BASES))) +
+  geom_histogram() +
+  theme_Publication() +
+  labs(y="Number of STAMPS",
+      title="Distribution of aligned PF Bases")
+```
+
+### ****
+
+```{r,echo=FALSE}
+library(corrplot)
+correlation_M <- cor(single_cell_metrics_filtered)
+corrplot(correlation_M,method="circle",
+         order="hclust", tl.col="black")
+```
+
+
+Column {data-width=600}
+-------------------------------------
+
+### **Heatmap for All mapping parameters**
+
+```{r}
+library(pheatmap)
+pheatmap(log10(single_cell_metrics_filtered+1),
+         show_rownames=F)
+```
+
+### **Heatmap for percentages of aligned Bases**
+
+```{r}
+single_cell_metrics_filtered_pct <- single_cell_metrics_filtered %>%
+  select(PCT_CODING_BASES,PCT_UTR_BASES,PCT_INTRONIC_BASES,PCT_INTERGENIC_BASES,PCT_MRNA_BASES,PCT_MRNA_BASES,PCT_USABLE_BASES)
+
+pheatmap(single_cell_metrics_filtered_pct)
+```
+
+**Read Distributions**{data-icon="ion-connection-bars"}
+===================================== 
 ### **Cumulative Read distribution**
 
 ```{r,echo=FALSE}
-read_count_distribution_name <- paste(sample_prefix,"aligned.tagged.cleaned.bam.readcount.txt",sep=".")
+read_count_distribution_name <- paste(sample_prefix,"readcount.txt",sep=".")
 read_count_distribution <- read.table(paste("./qc_stats/",read_count_distribution_name,sep=""),
                              sep="\t",
                              header=F,
                              stringsAsFactors=F)
-
-## Filter outs STAMPS that contribute too much reads based on the overall distribution
-outliers <- subset(read_count_distribution,read_count_distribution$V1 > mean(read_count_distribution$V1) + 6*sd(read_count_distribution$V1))
-
-read_count_distribution<- subset(read_count_distribution,read_count_distribution$V1 < mean(read_count_distribution$V1) + 5*sd(read_count_distribution$V1))
 
 cumulative_sum =cumsum(read_count_distribution$V1)
 cumulative_sum=cumulative_sum/max(cumulative_sum)
@@ -389,10 +441,8 @@ write.table(file="STAMP_barcodes.txt",
 
 x_cutoff=number_of_STAMPS*5
 cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
-cumulative_sum_matrix_subset <- subset(cumulative_sum_matrix,Value < x_cutoff)
-read_count_distribution$Value <- 1:nrow(read_count_distribution)
 
-plot_cumulative_sum <- ggplot(cumulative_sum_matrix_subset,aes(x=Cell_number, y=Value)) +
+plot_cumulative_sum <- ggplot(cumulative_sum_matrix,aes(x=Cell_number, y=Value)) +
   geom_line() +
   scale_x_continuous(limits=c(0,x_cutoff)) +
   geom_vline(colour="red",xintercept=number_of_STAMPS) +
@@ -400,6 +450,7 @@ plot_cumulative_sum <- ggplot(cumulative_sum_matrix_subset,aes(x=Cell_number, y=
        y="cumulative fraction of reads") +
   theme_Publication()
 ggplotly(plot_cumulative_sum)
+
 ```
 
 
@@ -418,5 +469,5 @@ plot_read_count_distribution_subset <- ggplot(read_count_distribution_subset,aes
        y="Number of STAMPS",
        title="Distribution of Reads for the top 2000 STAMPS") +
   theme_Publication()
-ggplotly(plot_read_count_distribution_subset)
+plot_read_count_distribution_subset
 ```
