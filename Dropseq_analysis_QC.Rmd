@@ -387,7 +387,7 @@ ggplot(single_cell_metrics,aes(log10(PF_ALIGNED_BASES))) +
       title="Distribution of aligned PF Bases")
 ```
 
-### ****
+### **Correlation plot between all single cell mapping parameters**
 
 ```{r,echo=FALSE}
 library(corrplot)
