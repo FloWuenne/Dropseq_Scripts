@@ -74,7 +74,7 @@ java_cmd="java -jar -Xmx4g -Djava.io.tmpdir=$outfile_dir/tmp"
 tbwrse_ex="TagBamWithReadSequenceExtended"
 filter_bam="FilterBAM"
 trim_start="TrimStartingSequence"
-polatrimmer="PolyATrimmer"
+polyatrimmer="PolyATrimmer"
 tagreadwithgeneexon="TagReadWithGeneExon"
 detectbeadsynthesiserrors="DetectBeadSynthesisErrors"
 gatherMolbarDistbyGene="GatherMolecularBarcodeDistributionByGene"
@@ -98,7 +98,7 @@ then
         $dropseq_tools/$tbwrse_ex INPUT=/dev/stdin OUTPUT=/dev/stdout SUMMARY=$outfile_dir/$unaligned_bam_tagged_CB_MB_summary BASE_RANGE=13-20 BASE_QUALITY=10 BARCODED_READ=1 DISCARD_READ=True TAG_NAME=XM NUM_BASES_BELOW_QUALITY=1 COMPRESSION_LEVEL=0  | \
 	$dropseq_tools/$filter_bam TAG_REJECT=XQ INPUT=/dev/stdin OUTPUT=/dev/stdout COMPRESSION_LEVEL=0 | \ 
         $dropseq_tools/$trim_start INPUT=/dev/stdin OUTPUT=/dev/stdout OUTPUT_SUMMARY=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_summary  SEQUENCE=AAGCAGTGGTATCAACGCAGAGTGAATGGG MISMATCHES=0 NUM_BASES=5 COMPRESSION_LEVEL=0 | \
-        $dropseq_tools/$polatrimmer INPUT=/dev/stdin OUTPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered OUTPUT_SUMMARY=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered_summary MISMATCHES=0 NUM_BASES=6
+        $dropseq_tools/$polyatrimmer INPUT=/dev/stdin OUTPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered OUTPUT_SUMMARY=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered_summary MISMATCHES=0 NUM_BASES=6
 
 	## Sam --> Fastq
         ## Using picards SamToFastq function
@@ -163,7 +163,7 @@ else
 	$dropseq_tools/$trim_start INPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_FB OUTPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart OUTPUT_SUMMARY=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_summary SEQUENCE=AAGCAGTGGTATCAACGCAGAGTGAATGGG MISMATCHES=0 NUM_BASES=5
 
 	## PolyATrimmer
-	$dropseq_tools/$polatrimmer INPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart OUTPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered OUTPUT_SUMMARY=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered_summary MISMATCHES=0 NUM_BASES=6
+	$dropseq_tools/$polyatrimmer INPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart OUTPUT=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered OUTPUT_SUMMARY=$outfile_dir/$unaligned_bam_tagged_CB_MB_trimmed_smart_poly_filtered_summary MISMATCHES=0 NUM_BASES=6
 
 	## Sam --> Fastq
 	## Using picards SamToFastq function
