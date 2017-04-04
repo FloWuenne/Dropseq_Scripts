@@ -41,30 +41,34 @@ shinyApp(
      ## Number of reads going to library
     sliderInput(inputId="num_of_stamps", label=h3("Number of STAMPS"), min=0,max=10000,value=2000),
     
-    plotOutput("Dropseq_plot")
+    plotOutput("Cumulative_plot"),
+    
+    plotOutput("Distribution_plot")
   ),
   
   server = function(input, output) {
-    
-    
-    distribution <- reactive({
-      rnbinom(input$num_of_stamps,2,input$cum_read_dist)
-      
-    })
-    
-    cumulative_sum_matrix_subset <- reactive({ 
-      distribution_sorted <- sort(distribution(),decreasing=TRUE)
-      cumulative_sum =cumsum(distribution_sorted)
-      cumulative_sum=cumulative_sum/max(cumulative_sum)
-
-      cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
-      cumulative_sum_matrix_subset <- subset(cumulative_sum_matrix,Value < 500)
-    })
-
   
+    distribution <- reactive({
+      dist <- rnbinom(input$num_of_stamps,2,input$cum_read_dist)
+      dist <- sort(dist,decreasing=TRUE)
+      data.frame("Value"=dist,"Cell_number"=1:length(dist))
+    })
     
-    output$Dropseq_plot <- renderPlot({
-      plot_cumulative_sum <- ggplot(cumulative_sum_matrix_subset(),aes(x=Cell_number, y=Value)) +
+    cumulative_sum_matrix <- reactive({ 
+      
+      cumulative_sum <- cumsum(distribution()$Value)
+      cumulative_sum <- cumulative_sum/max(cumulative_sum)
+
+      data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
+    })
+    
+    mean_depth <- reactive ({
+      reads <- subset(distribution()$V1[2000,])
+      mean(reads)
+    })
+
+    output$Cumulative_plot <- renderPlot({
+      plot_cumulative_sum <- ggplot(cumulative_sum_matrix(),aes(x=Cell_number, y=Value)) +
         geom_line() +
         scale_x_continuous() +
         labs(x="cell barcodes sorted by number of reads [descending]",
@@ -72,8 +76,19 @@ shinyApp(
         theme_light()
       print(plot_cumulative_sum)
     })
+    
+    output$Distribution_plot <- renderPlot({
+      plot_distribution <- ggplot(distribution(),aes(x=Cell_number, y=Value)) +
+        geom_line() +
+        scale_x_continuous() +
+        labs(x="cell barcodes sorted by number of reads [descending]",
+             y="cumulative fraction of reads") +
+        theme_light()
+      print(plot_distribution)
+    })
+    
   },
   
-  options = list(height = 500)
+  options = list(height = 2000)
 )
 ```
