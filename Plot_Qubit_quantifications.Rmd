@@ -1,0 +1,35 @@
+---
+title: "Plot_Dropseq_Qubit_quantifications"
+author: "Florian Wuennemann"
+
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## Load libraries
+library(tidyverse)
+library(ggrepel)
+```
+
+# Quantification of Qubit concentrations
+
+We will use this script to look at the amount of cDNA yield after PCR amplification. This will include cDNA from actual Runs, as well as Tube controls. For tube controls, every bead will basically have seen and hybridized RNA so the occupancy is 1, while for runs we assume an occuapncy of 5% which means 4kb ~ 200 STAMPS. 
+
+```{r}
+qubit_concentrations <- read_tsv("DROPSEQ_runs - Tube_control_concentrations.tsv")
+
+qubit_concentrations <- qubit_concentrations %>%
+  mutate(Concentration=as.numeric(as.character(Concentration))) %>%
+  subset(!is.na(Type))
+
+ggplot(qubit_concentrations,aes(No_of_beads,Concentration,fill=Cell_Type)) +
+  geom_point(size=6,alpha=0.6,pch=21,colour="black") +
+  theme_light() +
+  scale_fill_brewer(palette = "Set1") +
+  facet_wrap(~ Type ,scales="free_x")
+
+
+```
+

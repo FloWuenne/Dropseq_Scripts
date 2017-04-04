@@ -1,0 +1,79 @@
+---
+title: "Dropseq_coverage_estimator"
+author: "Florian Wuennemann"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Dropseq depth coverage estimator for STAMPS
+
+This utility lets you explore how many reads you expect per STAMP based on multiplexing your libraries on different illumina machines and using different amounts of STAMPS. There are several parameters that have to be defined which are rough estimates and are dependent on your specific Dropseq run. The default values are set to reasonable estimations but might not apply to your specific run.
+
+```{r,  echo = FALSE, eval=FALSE}
+reads <- 4e8
+cumulative <- 0.5
+number_of_STAMPS <- 2000
+
+distribution <- rnbinom(2000,0.7,0.5)
+distribution_sorted <- sort(distribution,decreasing=TRUE)
+
+cumulative_sum =cumsum(distribution_sorted)
+cumulative_sum=cumulative_sum/max(cumulative_sum)
+
+cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
+
+```
+
+
+
+
+```{r, echo = FALSE}
+library(ggplot2)
+shinyApp(
+  
+  ui = fluidPage(
+    ## Cumulative read distribution
+    sliderInput(inputId="cum_read_dist", label=h3("Cumulative Read Distribution"), min=0,max=1,value=0.5),
+     ## Number of reads going to library
+    sliderInput(inputId="num_of_stamps", label=h3("Number of STAMPS"), min=0,max=10000,value=2000),
+    
+    plotOutput("Dropseq_plot")
+  ),
+  
+  server = function(input, output) {
+    
+    
+    distribution <- reactive({
+      rnbinom(input$num_of_stamps,2,input$cum_read_dist)
+      
+    })
+    
+    cumulative_sum_matrix_subset <- reactive({ 
+      distribution_sorted <- sort(distribution(),decreasing=TRUE)
+      cumulative_sum =cumsum(distribution_sorted)
+      cumulative_sum=cumulative_sum/max(cumulative_sum)
+
+      cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
+      cumulative_sum_matrix_subset <- subset(cumulative_sum_matrix,Value < 500)
+    })
+
+  
+    
+    output$Dropseq_plot <- renderPlot({
+      plot_cumulative_sum <- ggplot(cumulative_sum_matrix_subset(),aes(x=Cell_number, y=Value)) +
+        geom_line() +
+        scale_x_continuous() +
+        labs(x="cell barcodes sorted by number of reads [descending]",
+             y="cumulative fraction of reads") +
+        theme_light()
+      print(plot_cumulative_sum)
+    })
+  },
+  
+  options = list(height = 500)
+)
+```
