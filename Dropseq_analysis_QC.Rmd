@@ -9,11 +9,11 @@ output:
 ```{r, echo=FALSE, cache=FALSE}
 ## Define the sample prefix used for all qc files as well as the targeted number of STAMPS
 sample_prefix <- ""
-number_of_STAMPS=
+number_of_STAMPS= 
 ```
 
 
-```{r knitr_init, echo=FALSE}
+```{r knitr_init, echo=FALSE,message=FALSE,include=FALSE}
 
 ## Will check for the required R packages and quietly install them if necessary
 
@@ -72,6 +72,34 @@ scale_colour_Publication <- function(...){
 
 }
 
+## Load Dropbead functions
+setGeneric("plotCumulativeFractionOfReads",
+           function(object, cutoff=10000, draw.infl.point=TRUE) {
+             standardGeneric("plotCumulativeFractionOfReads")})
+
+setMethod("plotCumulativeFractionOfReads",
+          "data.frame",
+          function(object, cutoff, draw.infl.point) {
+            df <- data.frame("cum"=cumsum(object[1:nrow(object), 1])/max(cumsum(object[1:nrow(object), 1])),
+                             "cells"=1:nrow(object))
+
+            infl.point <- findInflectionPoint(object[1:cutoff, 1], max.cells=cutoff, n=1)
+
+            g <- (ggplot(df, aes(cells, cum)) + geom_line(col="steelblue", size=1.25) + theme_minimal()
+            + scale_x_continuous(expand=c(0.015, 0),limits=c(0,cutoff))
+            + scale_y_continuous(expand = c(0.01, 0)) + ylab("Cumulative fraction of reads")
+            + xlab("Cell barcodes (descending number of reads)")
+            + theme(text=element_text(size=24),
+                    plot.margin = unit(c(1, 1 , 0.5, 0.5), "cm"),
+                    panel.border = element_rect(colour = "black", fill=NA, size=1),
+                    panel.grid.major = element_blank()))
+            if (draw.infl.point) {
+              g <- (g + geom_vline(xintercept = infl.point, col='red', size=1)
+                    + ggtitle(paste0('Number of STAMPS: ', infl.point))
+                    + theme(title = element_text(size=16)))
+            }
+            return (g)
+          })
 ```
 
 **Barcode quality**{data-orientation=rows}
@@ -216,6 +244,7 @@ Column {data-width=600}
 
 ```{r,echo=FALSE}
 library(stringr)
+
 ## Look at the number of duplicated and unique UMIs per Cell
 
 umi_by_gene <- read.table("./qc_stats/UMI_by_gene_dist.tab",sep="\t",header=T)
@@ -234,22 +263,18 @@ unique_umis_per_cell <- umi_by_gene %>%
   count()
 colnames(unique_umis_per_cell) <- c("Cell.Barcode","Num_of_unique_UMIs")
 
-## Sum up all duplicated UMIs
-subset_duplicated_umis <- umi_by_gene %>%
+## Calculate the mean number of duplications per duplicated UMI
+mean_duplications_per_cell <- umi_by_gene %>%
   group_by(Cell.Barcode) %>%
   subset(Num_Obs > 1) %>%
-  summarise(Mean_of_duplications_per_UMI=mean(Num_Obs))
-  
-subset_duplicated_umis_sum <- umi_by_gene %>%
-  group_by(Cell.Barcode) %>%
-  subset(Num_Obs > 1) %>%
-  summarise(Sum_of_duplications_per_UMI=sum(Num_Obs))
+  summarise(Mean_of_duplications = mean(Num_Obs))
 
-## Join duplicated and unique counts into one tibble
-joined_umi_counts <- full_join(num_of_duplicated_umis_per_cell,unique_umis_per_cell,by="Cell.Barcode")
-joined_umi_counts <- full_join(joined_umi_counts,subset_duplicated_umis,by="Cell.Barcode")
-joined_umi_counts <- full_join(joined_umi_counts,subset_duplicated_umis_sum,by="Cell.Barcode")
 
+## Join unique and duplicated UMI counts
+joined_umi_counts <- full_join(unique_umis_per_cell,num_of_duplicated_umis_per_cell,by="Cell.Barcode")
+joined_umi_counts <- full_join(joined_umi_counts,mean_duplications_per_cell,by="Cell.Barcode")
+
+## Calculate the percentage of UMI duplication
 ## Calculate the total number of UMIs as well as the percent of duplicated UMIs
 joined_umi_counts <- joined_umi_counts %>%
   group_by(Cell.Barcode) %>%
@@ -257,22 +282,9 @@ joined_umi_counts <- joined_umi_counts %>%
   mutate(Percent_duplicate_UMIs = Num_duplicated_UMIs/Total_number_individual_UMIs_detected*100) %>%
   mutate(Percent_unique_UMIs = Num_of_unique_UMIs/Total_number_individual_UMIs_detected*100)
 
-## Sort table based on Total number of UMIs per Cells
-joined_umi_counts <- joined_umi_counts %>%
-  arrange(desc(Percent_unique_UMIs))
-
-## Calculate GC content for Cell barcodes
-joined_umi_counts <-  joined_umi_counts %>%
-  mutate(count_G= str_count(Cell.Barcode, "G")) %>%
-  mutate(count_C= str_count(Cell.Barcode, "C")) %>%
-  mutate(freq_GC= (count_G + count_C) / 12)
-
-joined_umi_counts <- joined_umi_counts %>%
-  arrange(desc(freq_GC))
-
 ## Plot correlation between duplicated and unique UMIs per cell
-mean_duplicated_UMI <- ggplot(joined_umi_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,colour=Total_number_individual_UMIs_detected)) +
-  geom_point() +
+unique_vs_duplicated_Umis <- ggplot(joined_umi_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,text=paste("Mean_UMI_duplications=",round(Mean_of_duplications,2),sep=""))) +
+  geom_point(size=2,fill="grey",colour="darkgrey",pch=21) +
   theme_light() +
   labs(title="Duplicated vs unique UMIs per Cell",
        x = "Number of duplicated UMIs",
@@ -280,7 +292,7 @@ mean_duplicated_UMI <- ggplot(joined_umi_counts,aes(Num_duplicated_UMIs,Num_of_u
        subtitle = "Every point represents a Cell! Coloured by Percentage of duplicated UMIs for Cell barcode") +
   theme(plot.title = element_text(lineheight=.8, face="bold"))
 
-ggplotly(mean_duplicated_UMI)
+ggplotly(unique_vs_duplicated_Umis)
 
 ```
 
@@ -302,8 +314,15 @@ unique_umis_per_gene <- umi_by_gene %>%
   count()
 colnames(unique_umis_per_gene) <- c("Gene","Num_of_unique_UMIs")
 
+## Calculate the mean number of duplications per duplicated UMI
+mean_duplications_per_cell <- umi_by_gene %>%
+  group_by(Gene) %>%
+  subset(Num_Obs > 1) %>%
+  summarise(Mean_of_duplications = mean(Num_Obs))
+
 ## Join duplicated and unique counts into one tibble
 joined_umi_gene_counts <- full_join(num_of_duplicated_umis_per_gene,unique_umis_per_gene,by="Gene")
+joined_umi_gene_counts <- full_join(joined_umi_gene_counts,mean_duplications_per_cell,by="Gene")
 
 ## Calculate the total number of UMIs as well as the percent of duplicated UMIs
 joined_umi_gene_counts <- joined_umi_gene_counts %>%
@@ -316,8 +335,8 @@ joined_umi_gene_counts <- joined_umi_gene_counts %>%
 joined_umi_gene_counts <- joined_umi_gene_counts %>%
   arrange(desc(Num_of_unique_UMIs))
 
-umi_duplication_by_gene <- ggplot(joined_umi_gene_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,colour=Percent_duplicate_UMIs,text=Gene)) +
-  geom_point(size=2) +
+umi_duplication_by_gene <- ggplot(joined_umi_gene_counts,aes(Num_duplicated_UMIs,Num_of_unique_UMIs,text=paste("Gene = ",Gene,sep=""))) +
+  geom_point(size=2,fill="grey",colour="darkgrey",pch=21) +
   theme_light() +
   labs(title="Duplicated vs Unique UMIs per Gene",
        x = "Number of duplicated UMIs",
@@ -334,7 +353,7 @@ Column {data-width=600}
 ### **Distribution of duplicated UMIs per cell**
 
 ```{r,echo=FALSE}
-ggplot(joined_umi_counts,aes(log10(Mean_of_duplications_per_UMI))) +
+ggplot(joined_umi_counts,aes(log10(Mean_of_duplications))) +
   geom_histogram(colour="black",fill="grey50") +
   theme_light() +
   labs(title="Distribution of mean UMI duplication per Cell",
@@ -422,35 +441,18 @@ pheatmap(single_cell_metrics_filtered_pct)
 ### **Cumulative Read distribution**
 
 ```{r,echo=FALSE}
-read_count_distribution_name <- paste(sample_prefix,"readcount.txt",sep=".")
-read_count_distribution <- read.table(paste("./qc_stats/",read_count_distribution_name,sep=""),
-                             sep="\t",
-                             header=F,
-                             stringsAsFactors=F)
+library(devtools)
+library(data.table)
+library(dropbead)
 
-cumulative_sum =cumsum(read_count_distribution$V1)
-cumulative_sum=cumulative_sum/max(cumulative_sum)
+## Read in readcount.gz
+read_count_distribution_name <- paste(sample_prefix,"readcount.txt.gz",sep=".")
 
-STAMPS_barcodes <- read_count_distribution[1:number_of_STAMPS,2]
-write.table(file="STAMP_barcodes.txt",
-            STAMPS_barcodes,
-            row.names=FALSE,
-            col.names=FALSE,
-            sep="\t",
-            quote=FALSE)
+read_count_distribution <- data.frame(fread(paste("zcat < ./qc_stats/",read_count_distribution_name,sep="")))
 
-x_cutoff=number_of_STAMPS*5
-cumulative_sum_matrix <- data.frame("Value"=cumulative_sum,"Cell_number"=1:length(cumulative_sum))
-
-plot_cumulative_sum <- ggplot(cumulative_sum_matrix,aes(x=Cell_number, y=Value)) +
-  geom_line() +
-  scale_x_continuous(limits=c(0,x_cutoff)) +
-  geom_vline(colour="red",xintercept=number_of_STAMPS) +
-  labs(x="cell barcodes sorted by number of reads [descending]",
-       y="cumulative fraction of reads") +
-  theme_Publication()
-ggplotly(plot_cumulative_sum)
-
+plotCumulativeFractionOfReads(read_count_distribution, 
+                              cutoff = number_of_STAMPS*10, 
+                              draw.infl.point = TRUE)
 ```
 
 

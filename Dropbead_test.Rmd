@@ -1,0 +1,115 @@
+---
+title: "Dropbead_test"
+author: "Florian Wuennemann"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+setGeneric("plotCumulativeFractionOfReads",
+           function(object, cutoff=10000, draw.infl.point=TRUE) {
+             standardGeneric("plotCumulativeFractionOfReads")})
+setMethod("plotCumulativeFractionOfReads",
+          "data.frame",
+          function(object, cutoff, draw.infl.point) {
+            df <- data.frame("cum"=cumsum(object[1:nrow(object), 1])/max(cumsum(object[1:nrow(object), 1])),
+                             "cells"=1:nrow(object))
+
+            infl.point <- findInflectionPoint(object[1:cutoff, 1], max.cells=cutoff, n=1)
+
+            g <- (ggplot(df, aes(cells, cum)) + geom_line(col="steelblue", size=1.25) + theme_minimal()
+            + scale_x_continuous(expand=c(0.015, 0),limits=c(0,cutoff))
+            + scale_y_continuous(expand = c(0.01, 0)) + ylab("Cumulative fraction of reads")
+            + xlab("Cell barcodes (descending number of reads)")
+            + theme(text=element_text(size=24),
+                    plot.margin = unit(c(1, 1 , 0.5, 0.5), "cm"),
+                    panel.border = element_rect(colour = "black", fill=NA, size=1),
+                    panel.grid.major = element_blank()))
+            if (draw.infl.point) {
+              g <- (g + geom_vline(xintercept = infl.point, col='red', size=1)
+                    + ggtitle(paste0('Number of STAMPS: ', infl.point))
+                    + theme(title = element_text(size=16)))
+            }
+            return (g)
+          })
+```
+
+
+```{r}
+# Load libraries
+library(devtools)
+library(dropbead)
+library(data.table)
+library(xlsx)
+library(rJava)
+library(xlsxjars)
+
+
+## Retina_1 from Original paper
+reads.by.cell.retina_1 <- data.frame(fread('zcat < /media/florian/2da9b7a2-823d-44b6-97f8-993cbc54b240/Dropseq/MacCarrol_Retina1/qc_stats/Dropseq_retina_1.readcount.txt.gz'))
+
+
+plotCumulativeFractionOfReads(reads.by.cell.retina_1, 
+                              cutoff = 60000, 
+                              draw.infl.point = TRUE)
+
+## Species mixing 1 - R20160902
+reads.by.cell.species_1 <- data.frame(fread('zcat < /media/florian/2da9b7a2-823d-44b6-97f8-993cbc54b240/Dropseq/Andelfingerlab_Species_mix/mm10/140c_mm10/qc_stats/Species_mixing_Batch1_140cul.readcount.txt.gz'))
+dge.matrix <- data.frame(fread("zcat < /media/florian/2da9b7a2-823d-44b6-97f8-993cbc54b240/Dropseq/Andelfingerlab_Species_mix/mm10/140c_mm10/qc_stats/sample_dge_bc_file.txt.gz"), row.names = 1)
+
+# The object containing the sample
+mms <- new("MixedSpeciesSample", 
+           species1="human", 
+           species2="mouse",
+           dge=dge.matrix)
+
+plotCumulativeFractionOfReads(reads.by.cell.species_1, 
+                              cutoff = 1000, 
+                              draw.infl.point = TRUE)
+
+## Species mixing 2 - R20160907
+reads.by.cell.species_2 <- data.frame(fread('zcat < /media/florian/2da9b7a2-823d-44b6-97f8-993cbc54b240/Dropseq/Andelfingerlab_Species_mix/GRCM38/160_cells_per_ul_R20160902/qc_stats/Species_mix_160cul.readcount.txt.gz'))
+
+plotCumulativeFractionOfReads(reads.by.cell.species_2, 
+                              cutoff = 2000, 
+                              draw.infl.point = TRUE)
+
+## Hippocampus sample
+reads.by.cell.hippo <- data.frame(fread('zcat < /media/florian/2da9b7a2-823d-44b6-97f8-993cbc54b240/Dropseq/First__Sequencing_Submission_2016_PMCG/mm10/Hippo/qc_stats/Pineyro_Hippo_1st_Test.readcount.txt.gz'))
+  
+dge.martrix <- data.frame(fread("zcat < /mydaten/projects/hek3t3/data/ds_013_50fix/dge.txt.gz"), row.names = 1)
+
+plotCumulativeFractionOfReads(reads.by.cell.hippo, 
+                              cutoff = 20000, 
+                              draw.infl.point = TRUE)
+
+# The object containing the sample
+mms <- new("MixedSpeciesSample", 
+           species1="human", 
+           species2="mouse",
+           dge=dge.matrix)
+
+h.f1 <- keepBestCells(h, num.cells = 100) # keep only the top 100 cells
+h.f2 <- keepBestCells(h, min.num.trans = 1000) # keep cells with at least 1000 UMIs
+h.f3 <- removeLowQualityCells(h, min.genes = 2000) # remove cells which don't express at least 2000 genes
+h.f4 <- removeLowQualityGenes(h, min.cells = 3) # remove genes which are not expressed in at least 3 cells
+
+
+## mSLVP0
+reads.by.cell.mslvP0 <- data.frame(fread('zcat < /media/florian/2da9b7a2-823d-44b6-97f8-993cbc54b240/Dropseq/First__Sequencing_Submission_2016_PMCG/mSLVP0_mm10/qc_stats/mSLV_P0_1st_sample.readcount.txt.gz'))
+  
+plotCumulativeFractionOfReads(reads.by.cell.mslvP0, 
+                              cutoff = 20000, 
+                              draw.infl.point = TRUE)
+
+## mSLVP20
+reads.by.cell.mslvP20 <- data.frame(fread('zcat < /media/florian/2da9b7a2-823d-44b6-97f8-993cbc54b240/Dropseq/First__Sequencing_Submission_2016_PMCG/mSLVP20/qc_stats/mSLV_P20.readcount.txt.gz'))
+
+plotCumulativeFractionOfReads(reads.by.cell.mslvP20, 
+                              cutoff = 20000, 
+                              draw.infl.point = TRUE)
+```
+

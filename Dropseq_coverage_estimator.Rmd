@@ -16,7 +16,7 @@ This utility lets you explore how many reads you expect per STAMP based on multi
 ```{r,  echo = FALSE, eval=FALSE}
 reads <- 4e8
 cumulative <- 0.5
-number_of_STAMPS <- 2000
+number_of_reads <- 7420812
 
 distribution <- rnbinom(2000,0.7,0.5)
 distribution_sorted <- sort(distribution,decreasing=TRUE)
@@ -36,10 +36,14 @@ library(ggplot2)
 shinyApp(
   
   ui = fluidPage(
-    ## Cumulative read distribution
-    sliderInput(inputId="cum_read_dist", label=h3("Cumulative Read Distribution"), min=0,max=1,value=0.5),
+    ## Probability
+    sliderInput(inputId="cum_read_dist", label=h3("Prob"), min=0,max=1,value=0.5),
+    
+     ## Size parameter
+    sliderInput(inputId="size", label=h3("Size Parameter"), min=0,max=100,value=5),
+    
      ## Number of reads going to library
-    sliderInput(inputId="num_of_stamps", label=h3("Number of STAMPS"), min=0,max=10000,value=2000),
+    sliderInput(inputId="number_of_reads", label=h3("Number of of observations (n)"), min=0,max=100000,value=10),
     
     plotOutput("Cumulative_plot"),
     
@@ -49,7 +53,7 @@ shinyApp(
   server = function(input, output) {
   
     distribution <- reactive({
-      dist <- rnbinom(input$num_of_stamps,2,input$cum_read_dist)
+      dist <- rnbinom(input$number_of_reads,input$size,input$cum_read_dist)
       dist <- sort(dist,decreasing=TRUE)
       data.frame("Value"=dist,"Cell_number"=1:length(dist))
     })
@@ -78,11 +82,11 @@ shinyApp(
     })
     
     output$Distribution_plot <- renderPlot({
-      plot_distribution <- ggplot(distribution(),aes(x=Cell_number, y=Value)) +
-        geom_line() +
+      plot_distribution <- ggplot(distribution(),aes(Value)) +
+        geom_histogram() +
         scale_x_continuous() +
         labs(x="cell barcodes sorted by number of reads [descending]",
-             y="cumulative fraction of reads") +
+             y="Counts") +
         theme_light()
       print(plot_distribution)
     })
